@@ -8,7 +8,7 @@ class TimerCard extends LitElement {
       :host {
         display: block;
         padding: 15px;
-        border-radius: var(--border-radius-lvl1);
+        border-radius: var(--border-radius-lvl2);
         background: var(--forground);
         height: 100px;
         transition: box-shadow .05s ease-out;

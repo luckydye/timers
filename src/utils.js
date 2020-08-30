@@ -26,3 +26,23 @@ export function getTimerTime(timer) {
 
     return time;
 }
+
+export function getArrayDiff(oldArray, newArray) {
+  const deletedTimers = [];
+  const addedTimers = [];
+
+  for (let timer of oldArray) {
+    const lokalTimer = newArray.find(t => t.id === timer.id);
+    if (!lokalTimer) {
+      addedTimers.push(timer);
+    }
+  }
+  for (let timer of newArray) {
+    const stateTimer = oldArray.find(t => t.id === timer.id);
+    if (!stateTimer) {
+      deletedTimers.push(timer);
+    }
+  }
+
+  return [deletedTimers, addedTimers];
+}

@@ -48,9 +48,4 @@ async function init() {
   });
 
   navigator.serviceWorker.register('./sw.js');
-
-  const state = await State.getState();
-  if(state.timers.length < 1) {
-    State.createTimer();
-  }
 }
