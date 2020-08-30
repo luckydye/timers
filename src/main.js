@@ -47,5 +47,9 @@ async function init() {
     }
   });
 
-  navigator.serviceWorker.register('./sw.js');
+  const sw = await navigator.serviceWorker.register('./sw.js');
+
+  navigator.serviceWorker.addEventListener('message', e => {
+    console.log(e);
+  });
 }

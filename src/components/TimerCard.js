@@ -84,12 +84,6 @@ class TimerCard extends LitElement {
   set timer(val) {
     this._timer = val;
 
-    if(this._timer.state == 0 && this._timer.duration == 0) {
-      this.setAttribute('state', 'stopped');
-    } else if(this._timer.state == 1) {
-      this.setAttribute('state', 'running');
-    }
-
     this.update();
   }
 
@@ -99,6 +93,12 @@ class TimerCard extends LitElement {
     this._timer = null;
 
     window.addEventListener('tick', e => {
+      if(this._timer.state == 0 && this._timer.duration == 0) {
+        this.setAttribute('state', 'stopped');
+      } else if(this._timer.state == 1) {
+        this.setAttribute('state', 'running');
+      }
+
       this.update();
     });
   }
@@ -115,9 +115,9 @@ class TimerCard extends LitElement {
         </div>
         <div class="title">${timer.title}</div>
         <div class="state">
-          ${timer.state === 0 ? 
-            html`<svg xmlns="http://www.w3.org/2000/svg" width="55" height="66" viewBox="0 0 55 66"><g transform="translate(-0.056 -0.219)"><rect width="20" height="66" transform="translate(0.056 0.219)"/><rect width="20" height="66" transform="translate(35.056 0.219)"/></g></svg>` : 
-            html`<svg xmlns="http://www.w3.org/2000/svg" width="50" height="60" viewBox="0 0 50 60"><g transform="translate(-692.714 -1280.057)"><path d="M0,0,50,30h0L0,60Z" transform="translate(692.714 1280.057)"/></g></svg>`}          
+          ${timer.state === 1 ? 
+            html`<svg xmlns="http://www.w3.org/2000/svg" width="50" height="60" viewBox="0 0 50 60"><g transform="translate(-692.714 -1280.057)"><path d="M0,0,50,30h0L0,60Z" transform="translate(692.714 1280.057)"/></g></svg>` : 
+            html`<svg xmlns="http://www.w3.org/2000/svg" width="55" height="66" viewBox="0 0 55 66"><g transform="translate(-0.056 -0.219)"><rect width="20" height="66" transform="translate(0.056 0.219)"/><rect width="20" height="66" transform="translate(35.056 0.219)"/></g></svg>`}          
         </div>
       </div>
     `;

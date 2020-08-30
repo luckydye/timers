@@ -203,7 +203,7 @@ class DB {
   }
 
   initDatabase() {
-    const request = window.indexedDB.open(this.dbName, this.version);
+    const request = globalThis.indexedDB.open(this.dbName, this.version);
 
     request.onerror = event => {
       console.error("Database error:", event.target.error.name + ':', event.target.error.message);
@@ -213,33 +213,24 @@ class DB {
       const db = event.target.result;
       const objectStore = db.createObjectStore(this.storeName, {
         keyPath: "id"
-      }); // {
-      //     id: <uinque id>,
-      //     length: 1000 * 60, // ms
-      //     title: "Timer",
-      //     timestamp: 0,
-      //     state: 0,
-      //     duration: 0,
-      // }
-
+      });
+      const scheme = {
+        length: "length",
+        // ms
+        title: "title",
+        timestamp: "timestamp",
+        state: "state",
+        duration: "duration"
+      };
       objectStore.createIndex("id", "id", {
         unique: true
       });
-      objectStore.createIndex("length", "length", {
-        unique: false
-      });
-      objectStore.createIndex("title", "title", {
-        unique: false
-      });
-      objectStore.createIndex("timestamp", "timestamp", {
-        unique: false
-      });
-      objectStore.createIndex("state", "state", {
-        unique: false
-      });
-      objectStore.createIndex("duration", "duration", {
-        unique: false
-      });
+
+      for (let key in scheme) {
+        objectStore.createIndex(key, scheme[key], {
+          unique: false
+        });
+      }
 
       objectStore.transaction.oncomplete = event => {
         const bjectStore = db.transaction(this.storeName, "readwrite").objectStore(this.storeName);
@@ -336,7 +327,7 @@ const stateObject = {
 const db = new DB(stateObject);
 
 db.onready = () => {
-  window.addEventListener('statechange', e => {
+  globalThis.addEventListener('statechange', e => {
     db.getTimers().then(dbTimers => {
       const diff = (0, _utils.getArrayDiff)(stateObject.timers, dbTimers);
       const deletedTimers = diff[0];
@@ -351,36 +342,51 @@ db.onready = () => {
       }
     });
   });
-  window.addEventListener('tick', e => {
-    db.saveTimers();
-  });
   db.getTimers().then(timers => {
     stateObject.timers = timers;
     State.setState(stateObject);
   });
 };
 
+class TimerEvent extends Event {
+  constructor(timer) {
+    super('timer.finished');
+    this.timer = timer;
+  }
+
+}
+
 setInterval(async () => {
   const state = await State.getState();
 
   for (let timer of state.timers) {
-    const time = timer.length - (Date.now() - timer.timestamp + timer.duration);
+    const time = (0, _utils.getTimerTime)(timer);
 
-    if (time <= 0) {
-      timer.state = 0; // alert notification
+    if (time <= 0 && timer.state == 1) {
+      timer.state = 0;
+      State.setState(stateObject);
+      const evnt = new TimerEvent(timer);
+      globalThis.dispatchEvent(evnt);
     }
   }
 
-  window.dispatchEvent(new Event('tick'));
+  globalThis.dispatchEvent(new Event('tick'));
 }, 1000);
 
 class State {
   static setState(state) {
-    window.dispatchEvent(new Event('statechange'));
+    if (globalThis.parent == globalThis.parent) {
+      db.saveTimers();
+    }
+
+    globalThis.dispatchEvent(new Event('statechange'));
   }
 
   static async getState() {
-    return stateObject;
+    const state = Object.assign(stateObject, {
+      timers: await db.getTimers()
+    });
+    return state;
   }
 
   static async createTimer(options = {
@@ -416,21 +422,21 @@ class State {
     const timer = await this.getTimerById(timerId);
     timer.timestamp = Date.now();
     timer.state = 1;
-    this.setState(await this.getState());
+    this.setState(stateObject);
   }
 
   static async stopTimer(timerId) {
     const timer = await this.getTimerById(timerId);
     timer.duration = Date.now() - timer.timestamp;
     timer.state = 0;
-    this.setState(await this.getState());
+    this.setState(stateObject);
   }
 
   static async resetTimer(timerId) {
     const timer = await this.getTimerById(timerId);
     timer.duration = 0;
     timer.timestamp = Date.now();
-    this.setState(await this.getState());
+    this.setState(stateObject);
   }
 
   static async getTimerById(id) {
@@ -4613,8 +4619,10 @@ class Timer extends _BaseElement.default {
         this.update();
       }
     });
-    window.addEventListener('tick', e => {
+    window.addEventListener('tick', async e => {
       if (!this.editing) {
+        const state = await _State.default.getState();
+        this.timer = await _State.default.getTimerById(state.currentTimer);
         this.update();
       }
     });
@@ -4644,6 +4652,10 @@ class Timer extends _BaseElement.default {
       _State.default.startTimer(timer.id);
     } else if (timer.state == 1) {
       _State.default.stopTimer(timer.id);
+    } else if (timer.state == 2) {
+      _State.default.resetTimer(timer.id);
+
+      _State.default.startTimer(timer.id);
     }
   }
 
@@ -4652,10 +4664,10 @@ class Timer extends _BaseElement.default {
   }
 
   updateTimer(timer, update) {
-    const title = update.title || timer.title;
-    const newSecs = update.seconds || Math.floor(timer.length / 1000) % 60;
-    const newMins = update.minutes || Math.floor(timer.length / 60 / 1000) % 60;
-    const newHours = update.hours || Math.floor(timer.length / 60 / 60 / 1000);
+    const title = update.title == null ? timer.title : update.title;
+    const newSecs = update.seconds == null ? Math.floor(timer.length / 1000) % 60 : update.seconds;
+    const newMins = update.minutes == null ? Math.floor(timer.length / 60 / 1000) % 60 : update.minutes;
+    const newHours = update.hours == null ? Math.floor(timer.length / 60 / 60 / 1000) : update.hours;
 
     _State.default.updateTimer(timer.id, {
       title: title,
@@ -4708,7 +4720,6 @@ class Timer extends _BaseElement.default {
       <div class="timer">
         <div class="time">
           <input class="edit-field" 
-            type="number"
             maxlength="2"
             ?disabled="${!this.editing}"
             @input="${e => this.updateTimer(timer, {
@@ -4717,7 +4728,6 @@ class Timer extends _BaseElement.default {
             .value="${hours.toString().padStart(2, "0")}"/>
           <span class="dots">:</span>
           <input class="edit-field" 
-            type="number"
             maxlength="2"
             ?disabled="${!this.editing}"
             @input="${e => this.updateTimer(timer, {
@@ -4726,7 +4736,6 @@ class Timer extends _BaseElement.default {
             .value="${mins.toString().padStart(2, "0")}"/>
           <span class="dots">:</span>
           <input class="edit-field" 
-            type="number"
             maxlength="2"
             ?disabled="${!this.editing}"
             @input="${e => this.updateTimer(timer, {
@@ -4844,13 +4853,6 @@ class TimerCard extends _litElement.LitElement {
 
   set timer(val) {
     this._timer = val;
-
-    if (this._timer.state == 0 && this._timer.duration == 0) {
-      this.setAttribute('state', 'stopped');
-    } else if (this._timer.state == 1) {
-      this.setAttribute('state', 'running');
-    }
-
     this.update();
   }
 
@@ -4858,6 +4860,12 @@ class TimerCard extends _litElement.LitElement {
     super();
     this._timer = null;
     window.addEventListener('tick', e => {
+      if (this._timer.state == 0 && this._timer.duration == 0) {
+        this.setAttribute('state', 'stopped');
+      } else if (this._timer.state == 1) {
+        this.setAttribute('state', 'running');
+      }
+
       this.update();
     });
   }
@@ -4873,7 +4881,7 @@ class TimerCard extends _litElement.LitElement {
         </div>
         <div class="title">${timer.title}</div>
         <div class="state">
-          ${timer.state === 0 ? (0, _litElement.html)`<svg xmlns="http://www.w3.org/2000/svg" width="55" height="66" viewBox="0 0 55 66"><g transform="translate(-0.056 -0.219)"><rect width="20" height="66" transform="translate(0.056 0.219)"/><rect width="20" height="66" transform="translate(35.056 0.219)"/></g></svg>` : (0, _litElement.html)`<svg xmlns="http://www.w3.org/2000/svg" width="50" height="60" viewBox="0 0 50 60"><g transform="translate(-692.714 -1280.057)"><path d="M0,0,50,30h0L0,60Z" transform="translate(692.714 1280.057)"/></g></svg>`}          
+          ${timer.state === 1 ? (0, _litElement.html)`<svg xmlns="http://www.w3.org/2000/svg" width="50" height="60" viewBox="0 0 50 60"><g transform="translate(-692.714 -1280.057)"><path d="M0,0,50,30h0L0,60Z" transform="translate(692.714 1280.057)"/></g></svg>` : (0, _litElement.html)`<svg xmlns="http://www.w3.org/2000/svg" width="55" height="66" viewBox="0 0 55 66"><g transform="translate(-0.056 -0.219)"><rect width="20" height="66" transform="translate(0.056 0.219)"/><rect width="20" height="66" transform="translate(35.056 0.219)"/></g></svg>`}          
         </div>
       </div>
     `;
@@ -5019,7 +5027,10 @@ async function init() {
       closeDrawer();
     }
   });
-  navigator.serviceWorker.register("sw.js");
+  const sw = await navigator.serviceWorker.register("sw.js");
+  navigator.serviceWorker.addEventListener('message', e => {
+    console.log(e);
+  });
 }
 },{"./State.js":"State.js","./components/Timer.js":"components/Timer.js","./components/TimerCard.js":"components/TimerCard.js","./components/TimerList.js":"components/TimerList.js","./sw.js":[["sw.js","sw.js"],"sw.js.map","sw.js"]}],"../node_modules/parcel-bundler/src/builtins/hmr-runtime.js":[function(require,module,exports) {
 var global = arguments[3];
@@ -5049,7 +5060,7 @@ var parent = module.bundle.parent;
 if ((!parent || !parent.isParcelRequire) && typeof WebSocket !== 'undefined') {
   var hostname = "" || location.hostname;
   var protocol = location.protocol === 'https:' ? 'wss' : 'ws';
-  var ws = new WebSocket(protocol + '://' + hostname + ':' + "53288" + '/');
+  var ws = new WebSocket(protocol + '://' + hostname + ':' + "64151" + '/');
 
   ws.onmessage = function (event) {
     checkedAssets = {};

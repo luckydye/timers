@@ -1,4 +1,4 @@
-import { getArrayDiff, uuidv4 } from "./utils.js";
+import { getArrayDiff, getTimerTime, uuidv4 } from "./utils.js";
 
 class DB {
 
@@ -15,7 +15,7 @@ class DB {
   }
 
   initDatabase() {
-    const request = window.indexedDB.open(this.dbName, this.version);
+    const request = globalThis.indexedDB.open(this.dbName, this.version);
 
     request.onerror = event => {
       console.error("Database error:", event.target.error.name + ':', event.target.error.message);
@@ -24,21 +24,18 @@ class DB {
       const db = event.target.result;
       const objectStore = db.createObjectStore(this.storeName, { keyPath: "id" });
 
-      // {
-      //     id: <uinque id>,
-      //     length: 1000 * 60, // ms
-      //     title: "Timer",
-      //     timestamp: 0,
-      //     state: 0,
-      //     duration: 0,
-      // }
+      const scheme = {
+          length: "length", // ms
+          title: "title",
+          timestamp: "timestamp",
+          state: "state",
+          duration: "duration"
+      }
 
       objectStore.createIndex("id", "id", { unique: true });
-      objectStore.createIndex("length", "length", { unique: false });
-      objectStore.createIndex("title", "title", { unique: false });
-      objectStore.createIndex("timestamp", "timestamp", { unique: false });
-      objectStore.createIndex("state", "state", { unique: false });
-      objectStore.createIndex("duration", "duration", { unique: false });
+      for(let key in scheme) {
+        objectStore.createIndex(key, scheme[key], { unique: false });
+      }
 
       objectStore.transaction.oncomplete = event => {
         const bjectStore = db.transaction(this.storeName, "readwrite").objectStore(this.storeName);
@@ -129,7 +126,7 @@ const stateObject = {
 
 const db = new DB(stateObject);
 db.onready = () => {
-  window.addEventListener('statechange', e => {
+  globalThis.addEventListener('statechange', e => {
     db.getTimers().then(dbTimers => {
       const diff = getArrayDiff(stateObject.timers, dbTimers);
       const deletedTimers = diff[0];
@@ -143,38 +140,48 @@ db.onready = () => {
       }
     })
   });
-  window.addEventListener('tick', e => {
-    db.saveTimers();
-  });
   db.getTimers().then(timers => {
     stateObject.timers = timers;
     State.setState(stateObject);
-  })
+  });
+}
+
+class TimerEvent extends Event {
+  constructor(timer) {
+    super('timer.finished');
+    this.timer = timer;
+  }
 }
 
 setInterval(async () => {
   const state = await State.getState();
 
   for (let timer of state.timers) {
-    const time = timer.length - ((Date.now() - timer.timestamp) + timer.duration);
+    const time = getTimerTime(timer);
 
-    if (time <= 0) {
+    if (time <= 0 && timer.state == 1) {
       timer.state = 0;
-      // alert notification
+      State.setState(stateObject);
+      const evnt = new TimerEvent(timer);
+      globalThis.dispatchEvent(evnt);
     }
   }
 
-  window.dispatchEvent(new Event('tick'));
+  globalThis.dispatchEvent(new Event('tick'));
 }, 1000);
 
 export default class State {
 
   static setState(state) {
-    window.dispatchEvent(new Event('statechange'));
+    if(globalThis.parent == globalThis.parent) {
+      db.saveTimers();
+    }
+    globalThis.dispatchEvent(new Event('statechange'));
   }
 
   static async getState() {
-    return stateObject;
+    const state = Object.assign(stateObject, { timers: await db.getTimers() });
+    return state;
   }
 
   static async createTimer(options = {
@@ -209,21 +216,21 @@ export default class State {
     const timer = await this.getTimerById(timerId);
     timer.timestamp = Date.now();
     timer.state = 1;
-    this.setState(await this.getState());
+    this.setState(stateObject);
   }
 
   static async stopTimer(timerId) {
     const timer = await this.getTimerById(timerId);
     timer.duration = Date.now() - timer.timestamp;
     timer.state = 0;
-    this.setState(await this.getState());
+    this.setState(stateObject);
   }
 
   static async resetTimer(timerId) {
     const timer = await this.getTimerById(timerId);
     timer.duration = 0;
     timer.timestamp = Date.now();
-    this.setState(await this.getState());
+    this.setState(stateObject);
   }
 
   static async getTimerById(id) {

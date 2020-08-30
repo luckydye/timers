@@ -106,8 +106,10 @@ class Timer extends BaseElement {
       }
     });
 
-    window.addEventListener('tick', e => {
+    window.addEventListener('tick', async e => {
       if(!this.editing) {
+        const state = await State.getState();
+        this.timer = await State.getTimerById(state.currentTimer);
         this.update();
       }
     });
@@ -138,6 +140,9 @@ class Timer extends BaseElement {
       State.startTimer(timer.id);
     } else if(timer.state == 1) {
       State.stopTimer(timer.id);
+    } else if(timer.state == 2) {
+      State.resetTimer(timer.id); 
+      State.startTimer(timer.id);
     }
   }
 
@@ -146,10 +151,10 @@ class Timer extends BaseElement {
   }
 
   updateTimer(timer, update) {
-    const title = update.title || timer.title;
-    const newSecs = update.seconds || Math.floor(timer.length / 1000) % 60;
-    const newMins = update.minutes || Math.floor(timer.length / 60 / 1000) % 60;
-    const newHours = update.hours || Math.floor(timer.length / 60 / 60 / 1000);
+    const title = update.title == null ? timer.title : update.title;
+    const newSecs = update.seconds == null ? Math.floor(timer.length / 1000) % 60 : update.seconds;
+    const newMins = update.minutes == null ? Math.floor(timer.length / 60 / 1000) % 60 : update.minutes;
+    const newHours = update.hours == null ? Math.floor(timer.length / 60 / 60 / 1000) : update.hours;
 
     State.updateTimer(timer.id, {
       title: title,
@@ -207,21 +212,18 @@ class Timer extends BaseElement {
       <div class="timer">
         <div class="time">
           <input class="edit-field" 
-            type="number"
             maxlength="2"
             ?disabled="${!this.editing}"
             @input="${e => this.updateTimer(timer, { hours: +e.target.value })}"
             .value="${hours.toString().padStart(2, "0")}"/>
           <span class="dots">:</span>
           <input class="edit-field" 
-            type="number"
             maxlength="2"
             ?disabled="${!this.editing}"
             @input="${e => this.updateTimer(timer, { minutes: +e.target.value })}"
             .value="${mins.toString().padStart(2, "0")}"/>
           <span class="dots">:</span>
           <input class="edit-field" 
-            type="number"
             maxlength="2"
             ?disabled="${!this.editing}"
             @input="${e => this.updateTimer(timer, { seconds: +e.target.value })}"
