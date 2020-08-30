@@ -1,0 +1,20 @@
+{
+  "name": "timers-app",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "dependencies": {
+    "lit-element": "^2.4.0",
+    "parcel-bundler": "^1.12.4"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "build": "parcel build src/index.html --no-content-hash --out-dir public",
+    "dev": "parcel serve src/index.html --out-dir public"
+  },
+  "author": "",
+  "license": "ISC",
+  "browserslist": [
+    "last 1 Chrome version"
+  ]
+}
