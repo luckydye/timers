@@ -2,6 +2,36 @@ import State from './State.js';
 import './components/Timer.js';
 import './components/TimerCard.js';
 import './components/TimerList.js';
+import Notification from './components/Notification.js';
+
+let online = navigator.onLine;
+let lastOnlineStatus = online;
+
+function getOnlineStatus() {
+  return online;
+}
+
+function handleNetworkChange(event) {
+  lastOnlineStatus = online;
+  online = navigator.onLine;
+  
+  if(!online) {
+    new Notification({ text: 'You are offline' }).show();
+  } if(online && lastOnlineStatus == false) {
+    new Notification({ text: 'You are back online' }).show();
+  }
+  
+  document.body.setAttribute('online', online);
+}
+  
+window.addEventListener("online", handleNetworkChange);
+window.addEventListener("offline", handleNetworkChange);
+
+window.addEventListener("load", () => {
+  if(!online) {
+    new Notification({ text: 'You are offline' }).show();
+  }
+});
 
 window.addEventListener('DOMContentLoaded', init);
 

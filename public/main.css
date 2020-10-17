@@ -128,3 +128,9 @@ button:active {
 [drawer="open"] .timer-drawer {
     transform: translate(0, 0);
 }
+
+notifications {
+    position: fixed;
+    bottom: 0;
+    right: 15px;
+}
