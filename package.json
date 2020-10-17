@@ -9,8 +9,8 @@
   },
   "devDependencies": {},
   "scripts": {
-    "build": "parcel build src/index.html --no-content-hash --out-dir public --public-url .",
-    "dev": "parcel serve src/index.html --out-dir public --public-url ."
+    "build": "parcel build src/main.js --no-content-hash --out-dir public --public-url .",
+    "dev": "parcel serve src/main.js --out-dir public --public-url ."
   },
   "author": "",
   "license": "ISC",
